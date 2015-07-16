@@ -9,8 +9,9 @@ import (
 func LogFormat(format string, a ...interface{}) {
 
 	_, f, l, _ := runtime.Caller(1)
-	fmt.Printf("[%s:%d]\t", f, l)
-	fmt.Printf(format, a...)
+	s := fmt.Sprintf("[%s:%d]\t", f, l)
+	s += fmt.Sprintf(format, a...)
+	fmt.Printf(s)
 }
 
 func main() {

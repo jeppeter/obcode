@@ -7,6 +7,12 @@ import (
 	"runtime"
 )
 
+func LogLineFormat(format string, a ...interface{}) {
+	_, f, l, _ := runtime.Caller(1)
+	s := fmt.Sprintf("[%s:%d]\t", f, l)
+	s += fmt.Sprintf(format, a...)
+}
+
 func Obcode(srcdir string, dstdir string, fname string) (replc int, e error) {
 	sfile := srcdir + string(os.PathSeparator) + fname
 	rfile, e := os.Open(sfile)
