@@ -6,6 +6,8 @@ import (
 	"os"
 )
 
+var maxdep int = 0
+
 func PathDir(d string, dep int) int {
 	var count int
 	count = 0
@@ -14,6 +16,10 @@ func PathDir(d string, dep int) int {
 	if e != nil {
 		fmt.Fprintf(os.Stderr, "%s read error %v\n", d, e)
 		return 0
+	}
+
+	if dep > maxdep {
+		maxdep = dep
 	}
 
 	for i, f := range files {
@@ -35,6 +41,6 @@ func main() {
 		os.Exit(1)
 	}
 	cnt := PathDir(os.Args[1], 0)
-	fmt.Fprintf(os.Stdout, "<%s> total count %d\n", os.Args[1], cnt)
+	fmt.Fprintf(os.Stdout, "<%s> total count %d maxdep %d\n", os.Args[1], cnt, maxdep)
 	return
 }
