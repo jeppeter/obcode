@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"runtime"
 )
 
@@ -38,6 +39,10 @@ func ReadWriteFile(fname string, wfname string) (repl int, e error) {
 		Debug("make reader size error %v", e)
 		return 0, e
 	}
+	linenum := 1
+	obfunc_reg, e := regexp.Compile("OB_FUNC(\\s+)(\\S+)")
+	obvar_reg, e := regexp.Compile("OB_VAR(\\s+)(\\S+)")
+	obcode_reg, e := regexp.Compile("OB_CODE\\([^)]+\\)")
 	for {
 		line, _, e := rbuf.ReadLine()
 		if e != nil {
@@ -47,7 +52,16 @@ func ReadWriteFile(fname string, wfname string) (repl int, e error) {
 			Debug("read %s line error %v", fname, e)
 			return 0, e
 		}
-		wf.WriteString(string(line) + "\n")
+
+		if obfunc_reg.Match(line) {
+			Debug("<%d>%s match obfunc", linenum, line)
+		} else if obvar_reg.Match(line) {
+			Debug("<%d>%s match obvar", linenum, line)
+		} else if obcode_reg.Match(line) {
+			Debug("<%d>%s match obcode", linenum, line)
+		}
+		linenum++
+
 	}
 	return repl, nil
 }
