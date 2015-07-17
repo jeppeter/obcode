@@ -41,7 +41,7 @@ func ReadWriteFile(fname string, wfname string) (repl int, e error) {
 	}
 	linenum := 1
 	obfunc_reg, e := regexp.Compile(`OB_FUNC(\s+)([^(]+)`)
-	obvar_reg, e := regexp.Compile(`OB_VAR(\s+)([^ \t;,]+)`)
+	obvar_reg, e := regexp.Compile(`OB_VAR(\s+)([^ \t;,=]+)`)
 	obcode_reg, e := regexp.Compile(`OB_CODE\(([^)]+)\)`)
 	for {
 		line, _, e := rbuf.ReadLine()

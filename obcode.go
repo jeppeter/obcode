@@ -25,7 +25,18 @@ func Obcode(srcdir string, dstdir string, fname string) (replc int, e error) {
 	}
 	defer rfile.Close()
 	dfile := dstdir + string(os.PathSeparator) + fname
-	wfile, e := os.Open(dfile)
+	wfile, e := os.Create(dfile)
+	if e != nil {
+		Debug("can not open %s for writing error %v", dfile, e)
+		return 0, e
+	}
+	defer wfile.Close()
+
+	/************************************
+	*          to read every one line ,and
+	*          we write the line
+	*
+	************************************/
 }
 
 /********************************************
