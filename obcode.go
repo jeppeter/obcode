@@ -7,12 +7,13 @@ import (
 	"runtime"
 )
 
-func Debug(format string, a ...interface{}) {
+func Debug(format string, a ...interface{}) int {
 	_, f, l, _ := runtime.Caller(1)
 	s := fmt.Sprintf("[%s:%d]\t", f, l)
 	s += fmt.Sprintf(format, a...)
 	s += "\n"
 	fmt.Fprint(os.Stdout, s)
+	return len(s)
 }
 
 func Obcode(srcdir string, dstdir string, fname string) (replc int, e error) {
