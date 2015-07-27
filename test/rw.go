@@ -39,8 +39,17 @@ func ObFuncVarTransition(line string, funcname string, prefix string) retstr str
 }
 
 
+func SplitVar(sline string) []string {
+	var vars []string
+	vars = strings.Split(sline, ",")
+	for i, v := range vars {
+		vars[i] = strings.Trim(v, " \t")
+	}
+	return vars
+}
+
 func ObCodeTransition(line string,codename string,prefix string) retstr string {
-	var 
+	retstr = `do {} while(0);`
 }
 
 func ReadWriteFile(fname string, wfname string) (repl int, e error) {
