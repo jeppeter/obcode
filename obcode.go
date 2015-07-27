@@ -16,7 +16,7 @@ func Debug(format string, a ...interface{}) int {
 	return len(s)
 }
 
-func Obcode(srcdir string, dstdir string, fname string) (replc int, e error) {
+func Obcode(srcdir string, dstdir string, fname string, prefix string) (replc int, e error) {
 	sfile := srcdir + string(os.PathSeparator) + fname
 	rfile, e := os.Open(sfile)
 	if e != nil {
