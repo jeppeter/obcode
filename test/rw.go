@@ -49,7 +49,25 @@ func SplitVar(sline string) []string {
 }
 
 func ObCodeTransition(line string,codename string,prefix string) retstr string {
-	retstr = `do {} while(0);`
+	var tmpvars []string
+	var inputvars []string
+	inputvars = SplitVar(codename)
+
+	retstr = "do {\n"
+	if len(inputvars) < 1 {
+		retstr += "}while(0)\n"
+		return retstr
+	}
+	tmpvars = make([len(inputvars)]string)
+	for i,_ := inputvars{
+		tmpvars[i] = fmt.Sprintf("__x%d",i)
+		retstr += fmt.Sprintf("int %s;\n",tmpvars[i])
+	}
+
+	for i ,v :=  inputvars{
+		retstr += fmt.Sprintf("%s = %s;\n",tmpvars[i],v)
+	}
+
 }
 
 func ReadWriteFile(fname string, wfname string) (repl int, e error) {
