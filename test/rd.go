@@ -8,7 +8,9 @@ import (
 
 var maxdep int = 0
 
-func PathDir(d string, dep int) int {
+type PathFunc func(srcfile string, dstfile string, a ...interface{}) (num int, e error)
+
+func PathDir(srcdir string, dstdir string, dep int, f PathFunc, a ...interface{}) int {
 	var count int
 	count = 0
 	files, e := ioutil.ReadDir(d)
