@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	"ioutil"
+	"io/ioutil"
 	"os"
+	"reflect"
 	"runtime"
 )
 
@@ -25,7 +26,7 @@ func Debug(format string, a ...interface{}) int {
 	return len(s)
 }
 
-func NewThrArgs(srcdir string, dstdir string, fnamechan chan string, endchan chan int, prefix string) (args ThrArgs) {
+func NewThrArgs(srcdir string, dstdir string, fnamechan chan string, endchan chan int, prefix string) (args *ThrArgs) {
 	args = new(ThrArgs)
 	args.fnamechan = fnamechan
 	args.endchan = endchan
@@ -37,7 +38,7 @@ func NewThrArgs(srcdir string, dstdir string, fnamechan chan string, endchan cha
 }
 
 func Thread(args ThrArgs) (num int, e error) {
-	num := 0
+	num = 0
 	for {
 		select {
 		case fname := <-args.fnamechan:
@@ -56,9 +57,13 @@ func Thread(args ThrArgs) (num int, e error) {
 
 type PathFunc func(srcfile string, dstfile string, a ...interface{}) (num int, e error)
 
-func PrintPath(srcfile string, dstfile string, a ...interface{}) (num int, e error) {
+func PrintPath(srcfile string, dstfile string, a interface{}) (num int, e error) {
 	var argptr []*ThrArgs
-	argptr = ([]*ThrArgs) a
+	if reflect.TypeOf(argptr) == reflect.TypeOf(a) {
+		fmt.Printf("type assign\n")
+	}
+
+	return 0, nil
 }
 
 func PathDir(srcdir string, dstdir string, dep int, f PathFunc, a ...interface{}) int {
