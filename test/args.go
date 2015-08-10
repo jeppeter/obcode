@@ -4,7 +4,7 @@ import (
 	"container/list"
 	"fmt"
 	"os"
-	//	"reflect"
+	"reflect"
 	"runtime"
 )
 
@@ -46,8 +46,10 @@ type PathFunc func(srcfile string, dstfile string, a *list.List) (num int, e err
 func PrintPath(srcfile string, dstfile string, a *list.List) (num int, e error) {
 	var argptr *ThrArgs
 	for e := a.Front(); e != nil; e = e.Next() {
-		argptr = e.Value.(*ThrArgs)
-		fmt.Printf("%s\n", Stringer(argptr))
+		if reflect.TypeOf(e.Value) == reflect.TypeOf(argptr) {
+			argptr = e.Value.(*ThrArgs)
+			fmt.Printf("%s\n", Stringer(argptr))
+		}
 	}
 
 	return 0, nil
