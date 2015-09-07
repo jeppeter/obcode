@@ -181,7 +181,6 @@ func MainDispatch(srcdir string, dstdir string, partfile string, ch chan string,
 				var s string
 				if reflect.ValueOf(e.Value).Kind() == reflect.String {
 					s = reflect.ValueOf(e.Value).String()
-					Debug("filter <%s> name %s", s, f.Name())
 					if strings.HasSuffix(f.Name(), s) {
 						doing = 1
 						break

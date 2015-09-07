@@ -21,7 +21,7 @@ func main() {
 	b := re.Match(buf)
 
 	if b {
-		fmt.Fprintf(os.Stdout, "(%s) match (%s)\n", os.Args[1], os.Args[2])
+		fmt.Fprintf(os.Stdout, "<%s> match <%s>\n", os.Args[1], os.Args[2])
 	} else {
 		fmt.Fprintf(os.Stdout, "(%s) not match (%s)\n", os.Args[1], os.Args[2])
 	}

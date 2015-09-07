@@ -21,7 +21,7 @@ func Debug(format string, a ...interface{}) int {
 	return len(s)
 }
 
-func ObFuncVarTransition(line string, funcname string, prefix string) (retstr string) {
+func ObFuncTransition(line string, funcname string, prefix string) (retstr string) {
 	var rndstr string
 	var rndbyte [20]byte
 	for i := 0; i < 20; i++ {
@@ -37,6 +37,31 @@ func ObFuncVarTransition(line string, funcname string, prefix string) (retstr st
 	}
 	rndstr = string(rndbyte[:])
 	retstr = fmt.Sprintf("#define %s %s_%s\n", funcname, prefix, rndstr)
+	return retstr
+}
+
+func ObVarTransition(line string, varname string, prefix string) (retstr string) {
+	var rndstr string
+	var rndbyte [20]byte
+	for i := 0; i < 20; i++ {
+		rndnum := int(rand.Float32() * 100)
+		rndnum %= 62
+		if rndnum < 26 {
+			rndbyte[i] = byte(int('a') + rndnum)
+		} else if rndnum < 52 {
+			rndbyte[i] = byte(int('A') + rndnum - 26)
+		} else {
+			rndbyte[i] = byte(int('0') + rndnum - 52)
+		}
+	}
+	rndstr = string(rndbyte[:])
+	retstr = "#undef OB_VAR\n"
+	retstr += fmt.Sprintf("#define OB_VAR(%s) %s_%s\n", varname, prefix, rndstr)
+	retstr += fmt.Sprintf("#define %s %s_%s\n", varname, prefix, rndstr)
+	retstr += line
+	retstr += "\n"
+	retstr += "#undef OB_VAR\n"
+	retstr += "#define OB_VAR(x) x\n"
 	return retstr
 }
 
@@ -91,7 +116,6 @@ func ObCodeTransition(line string, codename string, prefix string, ntabs int) (r
 	var nvars, ci, cj int
 	inputvars = SplitVar(codename)
 
-	Debug("inputvars %s", inputvars)
 	retstr += ExpandNTabs(ntabs)
 	retstr += "do {\n"
 	if len(inputvars) < 1 {
@@ -99,7 +123,6 @@ func ObCodeTransition(line string, codename string, prefix string, ntabs int) (r
 		return retstr
 	}
 	nvars = len(inputvars)
-	Debug("nvars %d", nvars)
 	tmpvars = make([]string, nvars)
 	for i, _ := range inputvars {
 		tmpvars[i] = fmt.Sprintf("__%s_x%d", prefix, i)
@@ -113,7 +136,6 @@ func ObCodeTransition(line string, codename string, prefix string, ntabs int) (r
 	}
 
 	times = int(rand.Float32()*200)%100 + 20
-	Debug("times %d", times)
 	for i := 0; i < times; i++ {
 		ci = int(rand.Float32()*100) % nvars
 		cj = int(rand.Float32()*100) % nvars
@@ -124,12 +146,12 @@ func ObCodeTransition(line string, codename string, prefix string, ntabs int) (r
 
 	retstr += ExpandNTabs(ntabs)
 	retstr += "}while(0);\n"
-	Debug("retstr %s", retstr)
 	return retstr
 
 }
 
 func ReadWriteFile(fname string, wfname string, prefix string) (repl int, e error) {
+	var willwrite int
 	repl = 0
 	rf, e := os.Open(fname)
 	if e != nil {
@@ -138,7 +160,7 @@ func ReadWriteFile(fname string, wfname string, prefix string) (repl int, e erro
 	}
 
 	defer rf.Close()
-	wf, e := os.OpenFile(wfname, os.O_WRONLY|os.O_CREATE, 0666)
+	wf, e := os.Create(wfname)
 	if e != nil {
 		Debug("open write %s error %v", wfname, e)
 		return 0, e
@@ -156,7 +178,7 @@ func ReadWriteFile(fname string, wfname string, prefix string) (repl int, e erro
 		Debug("could not make OB_FUNC regexp %v", e)
 		return 0, e
 	}
-	obvar_reg, e := regexp.Compile(`OB_VAR(\s+)([^ \t;,=]+)`)
+	obvar_reg, e := regexp.Compile(`OB_VAR\(([^\)]+)\)`)
 	if e != nil {
 		Debug("could not make OB_VAR regexp %v", e)
 		return 0, e
@@ -180,25 +202,23 @@ func ReadWriteFile(fname string, wfname string, prefix string) (repl int, e erro
 			Debug("read %s line error %v", fname, e)
 			return 0, e
 		}
+		willwrite = 1
 		if obfunc_reg.Match(line) {
 			r := obfunc_reg.FindStringSubmatch(string(line))
-			Debug("<%d> func %s", linenum, r[2])
 			if !define_reg.Match(line) {
-				retstr := ObFuncVarTransition(string(line), r[2], prefix)
+				retstr := ObFuncTransition(string(line), r[2], prefix)
 				wf.WriteString(retstr)
 				repl++
 			}
-		} else if obvar_reg.Match(line) {
+		} else if obvar_reg.Match(line) && !define_reg.Match(line) {
 			r := obvar_reg.FindStringSubmatch(string(line))
-			Debug("<%d> var %s", linenum, r[2])
-			if !define_reg.Match(line) {
-				retstr := ObFuncVarTransition(string(line), r[2], prefix)
-				wf.WriteString(retstr)
-				repl++
-			}
+			retstr := ObVarTransition(string(line), r[1], prefix)
+			willwrite = 0
+			wf.WriteString(retstr)
+			repl++
+
 		} else if obcode_reg.Match(line) {
 			r := obcode_reg.FindStringSubmatch(string(line))
-			Debug("<%d> code var %s", linenum, r[1])
 			if !define_reg.Match(line) {
 				ntabs := CountTabs(string(line))
 				retstr := ObCodeTransition(string(line), r[1], prefix, ntabs)
@@ -207,7 +227,9 @@ func ReadWriteFile(fname string, wfname string, prefix string) (repl int, e erro
 			}
 		}
 		linenum++
-		wf.WriteString(string(line) + "\n")
+		if willwrite > 0 {
+			wf.WriteString(string(line) + "\n")
+		}
 
 	}
 	return repl, nil
