@@ -6,7 +6,9 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"reflect"
 	"runtime"
+	"strconv"
 	"strings"
 )
 
@@ -47,7 +49,7 @@ func ObcodeRoutine(srcdir string, dstdir string, ch chan string, done chan int, 
 		case fname = <-ch:
 			repl, err := Obcode(srcdir, dstdir, fname, prefix)
 			if err != nil {
-				Error("Obcode<%s%c%s>  in %s error %v", srcdir, os.PathSeparator, fname, prefix, err)
+				Error("Obcode<%s%s%s>  in %s error %v", srcdir, string(os.PathSeparator), fname, prefix, err)
 				e = err
 				goto out_chan
 			} else {
@@ -100,8 +102,8 @@ func CopyFileRoutine(srcdir string, dstdir string, ch chan string, done chan int
 	for {
 		select {
 		case fname = <-ch:
-			srcfile := srcdir + os.PathSeparator + fname
-			dstfile := dstdir + os.PathSeparator + fname
+			srcfile := srcdir + string(os.PathSeparator) + fname
+			dstfile := dstdir + string(os.PathSeparator) + fname
 			err := CopyFileContents(srcfile, dstfile)
 			if err != nil {
 				e = err
@@ -123,8 +125,8 @@ func MainDispatch(srcdir string, dstdir string, partfile string, ch chan string,
 	var doing int
 
 	if len(partfile) > 0 {
-		sd = srcdir + os.PathSeparator + partfile
-		dd = dstdir + os.PathSeparator + partfile
+		sd = srcdir + string(os.PathSeparator) + partfile
+		dd = dstdir + string(os.PathSeparator) + partfile
 	} else {
 		sd = srcdir
 		dd = dstdir
@@ -133,30 +135,30 @@ func MainDispatch(srcdir string, dstdir string, partfile string, ch chan string,
 	files, e := ioutil.ReadDir(sd)
 	for i, f := range files {
 		if f.Mode().IsDir() {
-			curd = dd + os.PathSeparator + f.Name()
-			curs = sd + os.PathSeparator + f.Name()
-			perm, err := os.Lstat(curs)
+			curd = dd + string(os.PathSeparator) + f.Name()
+			curs = sd + string(os.PathSeparator) + f.Name()
+			fileinfo, err := os.Lstat(curs)
 			if err != nil {
 				Error("can not Lstat %s <%v>", curs, err)
 				return err
 			}
-			err = os.MkdirAll(curd, perm)
+			err = os.MkdirAll(curd, fileinfo.Mode().Perm())
 			if err != nil {
 				Error("can not mkdir %s <%v>", curd, err)
 				return err
 			}
 			if len(partfile) > 0 {
-				nextpart = partfile + os.PathSeparator + f.Name()
+				nextpart = partfile + string(os.PathSeparator) + f.Name()
 			} else {
 				nextpart = f.Name()
 			}
-			err = MainDispatch(srcdir, dstdir, nextpart, ch)
+			err = MainDispatch(srcdir, dstdir, nextpart, ch, cpch, filterlist)
 			if err != nil {
 				return err
 			}
 		} else if f.Mode()&os.ModeSymlink == os.ModeSymlink {
-			curs = sd + os.PathSeparator + f.Name()
-			curd = dd + os.PathSeparator + f.Name()
+			curs = sd + string(os.PathSeparator) + f.Name()
+			curd = dd + string(os.PathSeparator) + f.Name()
 			ln, err := os.Readlink(curs)
 			if err != nil {
 				Error("could not readlink %s <%v>", curs, err)
@@ -172,19 +174,23 @@ func MainDispatch(srcdir string, dstdir string, partfile string, ch chan string,
 		} else if f.Mode().IsRegular() {
 			doing = 0
 			for e := filterlist.Front(); e != nil; e = e.Next() {
-				if strings.HasSuffix(f.Name(), e.Value) {
-					doing = 1
-					break
+				var s string
+				if reflect.ValueOf(e.Value).Kind() == reflect.String {
+					s = fmt.Sprintf("%T", e.Value)
+					if strings.HasSuffix(f.Name(), s) {
+						doing = 1
+						break
+					}
 				}
 			}
 
 			if len(partfile) > 0 {
-				nextpart = partfile + os.PathSeparator + f.Name()
+				nextpart = partfile + string(os.PathSeparator) + f.Name()
 			} else {
 				nextpart = f.Name()
 			}
 
-			if doing {
+			if doing != 0 {
 				ch <- nextpart
 			} else {
 				cpch <- nextpart
@@ -203,7 +209,7 @@ type ThrArgs struct {
 	prefix string
 }
 
-func NewThrArgs(srcdir string, dstdir string, prefix string, ch chan string) {
+func NewThrArgs(srcdir string, dstdir string, prefix string, ch chan string) *ThrArgs {
 	args := &ThrArgs{}
 	args.srcdir = srcdir
 	args.dstdir = dstdir
@@ -214,15 +220,111 @@ func NewThrArgs(srcdir string, dstdir string, prefix string, ch chan string) {
 	return args
 }
 
+func Usage(ec int, format string, a ...interface{}) {
+	f := os.Stderr
+	if ec == 0 {
+		f = os.Stdout
+	}
+
+	if format != "" {
+		fmt.Fprintf(f, format, a)
+		fmt.Fprintf(f, "\n")
+	}
+
+	fmt.Fprintf(f, "obcode [OPTIONS] srddir dstdir\n")
+	fmt.Fprintf(f, "\t-h|--help                  :do display this help information\n")
+	fmt.Fprintf(f, "\t-f|--filter suffix         :to filter the file\n")
+	fmt.Fprintf(f, "\t-p|--prefix prefix         :to set prefix default is \"prefix\"\n")
+	fmt.Fprintf(f, "\t-n|--numcpu num            :to specify the number of routines default is num cpu\n")
+	os.Exit(ec)
+}
+
+var filterlist list.List
+var gprefix string
+var numroutine int
+var gsrcdir, gdstdir string
+
+func ParseArgs() {
+	var i int
+	for i = 1; i < len(os.Args); i++ {
+		if os.Args[i] == "-h" || os.Args[i] == "--help" {
+			Usage(0, "")
+		} else if os.Args[i] == "-f" || os.Args[i] == "--filter" {
+			if (i + 1) >= len(os.Args) {
+				Usage(3, "%s need args", os.Args[i])
+			}
+			i++
+			filterlist.PushBack(os.Args[i])
+		} else if os.Args[i] == "-p" || os.Args[i] == "--prefix" {
+			if (i + 1) >= len(os.Args) {
+				Usage(3, "%s need args", os.Args[i])
+			}
+			i++
+			gprefix = os.Args[i]
+		} else if os.Args[i] == "-n" || os.Args[i] == "--numcpu" {
+			if (i + 1) >= len(os.Args) {
+				Usage(3, "%s need args", os.Args[i])
+			}
+			i++
+			numroutine, err := strconv.Atoi(os.Args[i])
+			if err != nil {
+				Usage(3, "%s must numeric", os.Args[i])
+			}
+		} else {
+			break
+		}
+	}
+
+	if (i + 2) >= len(os.Args) {
+		Usage(3, "need srcdir dstdir")
+	}
+
+	if numroutine <= 0 {
+		Usage(3, "num of routine must >0 ")
+	}
+
+	gsrcdir = os.Args[i]
+	i++
+	gdstdir = os.Args[i]
+}
+
 func main() {
 	var argsarr *[]ThrArgs
 
-	if len(os.Args) < 3 {
-
-	}
-
-	argsarr = make(*ThrArgs, runtime.NumCPU()*2)
+	gprefix = "prefix"
+	numroutine = runtime.NumCPU()
+	filterlist.PushBack(".c")
+	filterlist.PushBack(".h")
+	ParseArgs()
+	argsarr = make(*[]ThrArgs, numroutine*2)
 	cpch := make(chan string)
 	obch := make(chan string)
 
+	for i := 0; i < numroutine; i++ {
+		s := fmt.Sprintf("%s_%d", gprefix, i)
+		args := NewThrArgs(gsrcdir, gdstdir, s, obch)
+		argsarr[i] = args
+		go ObcodeRoutine(gsrcdir, gdstdir, obch, args.done, args.over, s)
+	}
+
+	for i := 0; i < numroutine; i++ {
+		s := fmt.Sprintf("%s_cp_%d", gprefix, i)
+		args := NewThrArgs(gsrcdir, gdstdir, s, cpch)
+		argsarr[numroutine+i] = args
+		go CopyFileRoutine(gsrcdir, gdstdir, cpch, args.done, args.over)
+	}
+	err := MainDispatch(gsrcdir, gdstdir, "", obch, cpch, filterlist)
+
+	for i := 0; i < numroutine*2; i++ {
+		argsarr[i].done <- 1
+	}
+
+	for i := 0; i < numroutine*2; i++ {
+		<-argsarr[i].over
+	}
+
+	if err {
+		os.Exit(3)
+	}
+	os.Exit(0)
 }
