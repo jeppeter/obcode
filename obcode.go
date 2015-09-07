@@ -194,11 +194,11 @@ func MainDispatch(srcdir string, dstdir string, partfile string, ch chan string,
 				nextpart = f.Name()
 			}
 
-			Debug("%s%s%s for %d", srcdir, string(os.PathSeparator), nextpart, doing)
-
 			if doing != 0 {
+				Debug("%s%s%s for obfucscated", srcdir, string(os.PathSeparator), nextpart)
 				ch <- nextpart
 			} else {
+				Debug("%s%s%s for copy", srcdir, string(os.PathSeparator), nextpart)
 				cpch <- nextpart
 			}
 		}
