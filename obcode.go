@@ -47,7 +47,7 @@ func ObcodeRoutine(srcdir string, dstdir string, ch chan string, done chan int, 
 	for {
 		select {
 		case fname = <-ch:
-			repl, err := Obcode(srcdir, dstdir, fname, prefix)
+			_, err := Obcode(srcdir, dstdir, fname, prefix)
 			if err != nil {
 				Error("Obcode<%s%s%s>  in %s error %v", srcdir, string(os.PathSeparator), fname, prefix, err)
 				e = err
@@ -121,7 +121,6 @@ out_chan2:
 
 func MainDispatch(srcdir string, dstdir string, partfile string, ch chan string, cpch chan string, filterlist *list.List) error {
 	var sd, dd, curs, curd, nextpart string
-	var err error
 	var doing int
 
 	if len(partfile) > 0 {
@@ -133,7 +132,11 @@ func MainDispatch(srcdir string, dstdir string, partfile string, ch chan string,
 	}
 
 	files, e := ioutil.ReadDir(sd)
-	for i, f := range files {
+	if e != nil {
+		Error("can not readdir %s <%v>", sd, e)
+		return e
+	}
+	for _, f := range files {
 		if f.Mode().IsDir() {
 			curd = dd + string(os.PathSeparator) + f.Name()
 			curs = sd + string(os.PathSeparator) + f.Name()
@@ -246,6 +249,7 @@ var gsrcdir, gdstdir string
 
 func ParseArgs() {
 	var i int
+	var err error
 	for i = 1; i < len(os.Args); i++ {
 		if os.Args[i] == "-h" || os.Args[i] == "--help" {
 			Usage(0, "")
@@ -266,7 +270,7 @@ func ParseArgs() {
 				Usage(3, "%s need args", os.Args[i])
 			}
 			i++
-			numroutine, err := strconv.Atoi(os.Args[i])
+			numroutine, err = strconv.Atoi(os.Args[i])
 			if err != nil {
 				Usage(3, "%s must numeric", os.Args[i])
 			}
@@ -289,14 +293,14 @@ func ParseArgs() {
 }
 
 func main() {
-	var argsarr *[]ThrArgs
+	var argsarr []*ThrArgs
 
 	gprefix = "prefix"
 	numroutine = runtime.NumCPU()
 	filterlist.PushBack(".c")
 	filterlist.PushBack(".h")
 	ParseArgs()
-	argsarr = make(*[]ThrArgs, numroutine*2)
+	argsarr = make([]*ThrArgs, numroutine*2)
 	cpch := make(chan string)
 	obch := make(chan string)
 
@@ -313,7 +317,7 @@ func main() {
 		argsarr[numroutine+i] = args
 		go CopyFileRoutine(gsrcdir, gdstdir, cpch, args.done, args.over)
 	}
-	err := MainDispatch(gsrcdir, gdstdir, "", obch, cpch, filterlist)
+	err := MainDispatch(gsrcdir, gdstdir, "", obch, cpch, &filterlist)
 
 	for i := 0; i < numroutine*2; i++ {
 		argsarr[i].done <- 1
@@ -323,7 +327,7 @@ func main() {
 		<-argsarr[i].over
 	}
 
-	if err {
+	if err != nil {
 		os.Exit(3)
 	}
 	os.Exit(0)

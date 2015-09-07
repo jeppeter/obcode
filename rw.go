@@ -7,9 +7,7 @@ import (
 	"math/rand"
 	"os"
 	"regexp"
-	"runtime"
 	"strings"
-	"time"
 )
 
 func ObFuncVarTransition(line string, funcname string, prefix string) (retstr string) {
