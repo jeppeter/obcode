@@ -180,7 +180,6 @@ func ReadWriteFile(fname string, wfname string, prefix string) (repl int, e erro
 			Debug("read %s line error %v", fname, e)
 			return 0, e
 		}
-
 		if obfunc_reg.Match(line) {
 			r := obfunc_reg.FindStringSubmatch(string(line))
 			Debug("<%d> func %s", linenum, r[2])

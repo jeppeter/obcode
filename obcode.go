@@ -175,11 +175,13 @@ func MainDispatch(srcdir string, dstdir string, partfile string, ch chan string,
 			}
 
 		} else if f.Mode().IsRegular() {
+
 			doing = 0
 			for e := filterlist.Front(); e != nil; e = e.Next() {
 				var s string
 				if reflect.ValueOf(e.Value).Kind() == reflect.String {
-					s = fmt.Sprintf("%T", e.Value)
+					s = reflect.ValueOf(e.Value).String()
+					Debug("filter <%s> name %s", s, f.Name())
 					if strings.HasSuffix(f.Name(), s) {
 						doing = 1
 						break
@@ -192,6 +194,8 @@ func MainDispatch(srcdir string, dstdir string, partfile string, ch chan string,
 			} else {
 				nextpart = f.Name()
 			}
+
+			Debug("%s%s%s for %d", srcdir, string(os.PathSeparator), nextpart, doing)
 
 			if doing != 0 {
 				ch <- nextpart
@@ -279,7 +283,7 @@ func ParseArgs() {
 		}
 	}
 
-	if (i + 2) >= len(os.Args) {
+	if (i + 2) > len(os.Args) {
 		Usage(3, "need srcdir dstdir")
 	}
 
