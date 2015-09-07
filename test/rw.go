@@ -65,6 +65,16 @@ func ObVarTransition(line string, varname string, prefix string) (retstr string)
 	return retstr
 }
 
+func ObDeclVarTransition(line string, varname string, prefix string) (retstr string) {
+	retstr = "#undef OB_DECL_VAR\n"
+	retstr += fmt.Sprintf("#define OB_DECL_VAR(%s) OB_VAR(%s)\n", varname, varname)
+	retstr += line
+	retstr += "\n"
+	retstr += "#undef OB_DECL_VAR\n"
+	retstr += "#define OB_DECL_VAR(x) x\n"
+	return retstr
+}
+
 func SplitVar(sline string) []string {
 	var vars []string
 	vars = strings.Split(sline, ",")
@@ -183,6 +193,12 @@ func ReadWriteFile(fname string, wfname string, prefix string) (repl int, e erro
 		Debug("could not make OB_VAR regexp %v", e)
 		return 0, e
 	}
+
+	obdeclvar_reg, e := regexp.Compile(`OB_DECL_VAR\(([^\)]+)\)`)
+	if e != nil {
+		Debug("could not make OB_DECL_VAR regexp %v", e)
+		return 0, e
+	}
 	obcode_reg, e := regexp.Compile(`OB_CODE\(([^)]+)\)`)
 	if e != nil {
 		Debug("could not make OB_CODE regex %v", e)
@@ -225,6 +241,12 @@ func ReadWriteFile(fname string, wfname string, prefix string) (repl int, e erro
 				wf.WriteString(retstr)
 				repl++
 			}
+		} else if obdeclvar_reg.Match(line) && !define_reg.Match(line) {
+			r := obdeclvar_reg.FindStringSubmatch(string(line))
+			retstr := ObDeclVarTransition(string(line), r[1], prefix)
+			willwrite = 0
+			wf.WriteString(retstr)
+			repl++
 		}
 		linenum++
 		if willwrite > 0 {

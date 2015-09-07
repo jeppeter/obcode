@@ -4,9 +4,11 @@
 #define OB_VAR(x)  x
 #define OB_FUNC
 #define OB_CODE(...)
+#define OB_DECL_VAR(x) x
 
 
-int OB_VAR(newvar)=2;
+extern int OB_VAR(newvar);
+int OB_DECL_VAR(newvar)=2;
 
 int OB_FUNC PrintFunc()
 {
