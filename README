@@ -1,0 +1,27 @@
+obcode is the tool to obfuscate source code of c or c++
+this is done by defining macro for c language
+
+for function define
+int OB_FUNC PrintFunc()
+{
+	return 0;
+}
+
+
+for variable define
+extern int OB_VAR(newvar);
+
+
+for variable declare
+int OB_DECL_VAR(newvar)=2;
+
+for code insertion
+OB_CODE(a,b,c);
+
+the example is to run compile
+go build 
+
+and run 
+obcode dummy ../newdummy
+
+this will give the example

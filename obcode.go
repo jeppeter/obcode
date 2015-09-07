@@ -307,6 +307,12 @@ func main() {
 	cpch := make(chan string)
 	obch := make(chan string)
 
+	_, e := os.Lstat(gdstdir)
+	if e != nil {
+		fi, _ := os.Lstat(gsrcdir)
+		os.MkdirAll(gdstdir, fi.Mode().Perm())
+	}
+
 	for i := 0; i < numroutine; i++ {
 		s := fmt.Sprintf("%s_%d", gprefix, i)
 		args := NewThrArgs(gsrcdir, gdstdir, s, obch)
