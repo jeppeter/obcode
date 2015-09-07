@@ -27,41 +27,26 @@ func Error(format string, a ...interface{}) int {
 
 func Obcode(srcdir string, dstdir string, fname string, prefix string) (replc int, e error) {
 	sfile := srcdir + string(os.PathSeparator) + fname
-	rfile, e := os.Open(sfile)
-	if e != nil {
-		Debug("can not open %s error %v", sfile, e)
-		return 0, e
-	}
-	defer rfile.Close()
 	dfile := dstdir + string(os.PathSeparator) + fname
-	wfile, e := os.Create(dfile)
-	if e != nil {
-		Debug("can not open %s for writing error %v", dfile, e)
-		return 0, e
-	}
-	defer wfile.Close()
-
-	/************************************
-	*          to read every one line ,and
-	*          we write the line
-	*
-	************************************/
+	return ReadWriteFile(sfile, dfile, prefix)
 }
 
 /********************************************
 *    ch for the string to handle
 *    done for the over down it
 ********************************************/
-func ObcodeRoutine(srcdir string, dstdir string, ch chan string, done chan int, over chan int, idxnum int, prefix string) (cnt int, e error) {
+func ObcodeRoutine(srcdir string, dstdir string, ch chan string, done chan int, over chan int, prefix string) (cnt int, e error) {
 	var fname string
 	cnt = 0
-
+	e = nil
 	for {
 		select {
 		case fname := <-ch:
 			repl, err := Obcode(srcdir, dstdir, fname, prefix)
 			if err != nil {
 				Error("Obcode<%s%c%s>  in %s error %v", srcdir, os.PathSeparator, fname, prefix, err)
+				e = err
+				goto out_chan
 			} else {
 				cnt++
 			}
@@ -72,5 +57,25 @@ func ObcodeRoutine(srcdir string, dstdir string, ch chan string, done chan int, 
 	}
 out_chan:
 	over <- 1
-	return
+	return cnt, e
+}
+
+func MainDispatch(srcdir string, dstdir string, partfile string, ch chan string) (e error) {
+	var sd, dd, curs, curd string
+
+	if len(partfile) > 0 {
+		sd = srcdir + os.PathSeparator + partfile
+		dd = dstdir + os.PathSeparator + partfile
+	} else {
+		sd = srcdir
+		dd = dstdir
+	}
+
+	files, e := ioutil.ReadDir(sd)
+	for i, f := range files {
+		if f.Mode().IsDir() {
+			curd = os + dd.PathSeparator + f.Name()
+			os.Mkdir(name, perm)
+		}
+	}
 }
