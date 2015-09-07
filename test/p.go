@@ -1,10 +1,10 @@
 package main
 
 import (
-	"./mypkg"
 	"fmt"
+	"os"
 )
 
 func main() {
-	fmt.Printf("%d + %d = %d\n", 1, 2, mypkg.Add(1, 2))
+	fmt.Printf("os seperator %c\n", os.PathSeparator)
 }
