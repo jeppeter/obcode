@@ -36,35 +36,6 @@ func Obcode(srcdir string, dstdir string, fname string, prefix string) (replc in
 	return ReadWriteFile(sfile, dfile, prefix)
 }
 
-/********************************************
-*    ch for the string to handle
-*    done for the over down it
-********************************************/
-func ObcodeRoutine(srcdir string, dstdir string, ch chan string, done chan int, over chan int, prefix string) (cnt int, e error) {
-	var fname string
-	cnt = 0
-	e = nil
-	for {
-		select {
-		case fname = <-ch:
-			_, err := Obcode(srcdir, dstdir, fname, prefix)
-			if err != nil {
-				Error("Obcode<%s%s%s>  in %s error %v", srcdir, string(os.PathSeparator), fname, prefix, err)
-				e = err
-				goto out_chan
-			} else {
-				cnt++
-			}
-		case <-done:
-			goto out_chan
-
-		}
-	}
-out_chan:
-	over <- 1
-	return cnt, e
-}
-
 func CopyFileContents(srcfile string, dstfile string) error {
 	in, err := os.Open(srcfile)
 	if err != nil {
@@ -94,7 +65,11 @@ func CopyFileContents(srcfile string, dstfile string) error {
 	return nil
 }
 
-func CopyFileRoutine(srcdir string, dstdir string, ch chan string, done chan int, over chan int) (cnt int, e error) {
+/********************************************
+*    ch for the string to handle
+*    done for the over down it
+********************************************/
+func ObcodeRoutine(srcdir string, dstdir string, ch chan string, cpch chan string, done chan int, over chan int, prefix string) (cnt int, e error) {
 	var fname string
 
 	cnt = 0
@@ -102,19 +77,26 @@ func CopyFileRoutine(srcdir string, dstdir string, ch chan string, done chan int
 	for {
 		select {
 		case fname = <-ch:
+			_, err := Obcode(srcdir, dstdir, fname, prefix)
+			if err != nil {
+				Error("Obcode<%s%s%s>  in %s error %v", srcdir, string(os.PathSeparator), fname, prefix, err)
+			} else {
+				cnt++
+			}
+
+		case fname = <-cpch:
 			srcfile := srcdir + string(os.PathSeparator) + fname
 			dstfile := dstdir + string(os.PathSeparator) + fname
 			err := CopyFileContents(srcfile, dstfile)
 			if err != nil {
-				e = err
-				goto out_chan2
+				Error("Copyfile<%s%s%s> in %s error %v", srcdir, string(os.PathSeparator), fname, prefix, err)
 			}
-			cnt++
 		case <-done:
-			goto out_chan2
+			goto out_chan
+
 		}
 	}
-out_chan2:
+out_chan:
 	over <- 1
 	return cnt, e
 }
@@ -303,7 +285,7 @@ func main() {
 	filterlist.PushBack(".c")
 	filterlist.PushBack(".h")
 	ParseArgs()
-	argsarr = make([]*ThrArgs, numroutine*2)
+	argsarr = make([]*ThrArgs, numroutine)
 	cpch := make(chan string)
 	obch := make(chan string)
 
@@ -317,22 +299,16 @@ func main() {
 		s := fmt.Sprintf("%s_%d", gprefix, i)
 		args := NewThrArgs(gsrcdir, gdstdir, s, obch)
 		argsarr[i] = args
-		go ObcodeRoutine(gsrcdir, gdstdir, obch, args.done, args.over, s)
+		go ObcodeRoutine(gsrcdir, gdstdir, obch, cpch, args.done, args.over, s)
 	}
 
-	for i := 0; i < numroutine; i++ {
-		s := fmt.Sprintf("%s_cp_%d", gprefix, i)
-		args := NewThrArgs(gsrcdir, gdstdir, s, cpch)
-		argsarr[numroutine+i] = args
-		go CopyFileRoutine(gsrcdir, gdstdir, cpch, args.done, args.over)
-	}
 	err := MainDispatch(gsrcdir, gdstdir, "", obch, cpch, &filterlist)
 
-	for i := 0; i < numroutine*2; i++ {
+	for i := 0; i < numroutine; i++ {
 		argsarr[i].done <- 1
 	}
 
-	for i := 0; i < numroutine*2; i++ {
+	for i := 0; i < numroutine; i++ {
 		<-argsarr[i].over
 	}
 
