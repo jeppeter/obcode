@@ -30,6 +30,23 @@ func Error(format string, a ...interface{}) int {
 	return len(s)
 }
 
+type filters struct {
+	list.List
+}
+
+func (f *filters) String() string {
+	s := ""
+	for e := f.Front(); e != nil; e = e.Next() {
+		s += fmt.Sprintf("%s;", reflect.ValueOf(e.Value).String())
+	}
+	return s
+}
+
+func (f *filters) Set(value string) error {
+	f.PushBack(value)
+	return nil
+}
+
 func Obcode(srcdir string, dstdir string, fname string, prefix string) (replc int, e error) {
 	sfile := srcdir + string(os.PathSeparator) + fname
 	dfile := dstdir + string(os.PathSeparator) + fname
@@ -101,7 +118,7 @@ out_chan:
 	return cnt, e
 }
 
-func MainDispatch(srcdir string, dstdir string, partfile string, ch chan string, cpch chan string, filterlist *list.List) error {
+func MainDispatch(srcdir string, dstdir string, partfile string, ch chan string, cpch chan string, filterlist *filters) error {
 	var sd, dd, curs, curd, nextpart string
 	var doing int
 
@@ -215,7 +232,7 @@ func Usage(ec int, format string, a ...interface{}) {
 	}
 
 	if format != "" {
-		fmt.Fprintf(f, format, a)
+		fmt.Fprintf(f, format, a...)
 		fmt.Fprintf(f, "\n")
 	}
 
@@ -227,7 +244,7 @@ func Usage(ec int, format string, a ...interface{}) {
 	os.Exit(ec)
 }
 
-var filterlist list.List
+var filterlist filters
 var gprefix string
 var numroutine int
 var gsrcdir, gdstdir string
